@@ -5,7 +5,7 @@ import requests
 import plotly.graph_objects as go
 from datetime import datetime, timezone, timedelta
 
-# 🎨 1. إعدادات وتصميم الصفحة الرسومية الاحترافية (مظهر داكن مستوحى من الصورتين المرسلتين)
+# 🎨 1. إعدادات وتصميم الصفحة الرسومية الاحترافية (مظهر داكن مستوحى من الصناديق الكبرى)
 st.set_page_config(page_title="منصة مستشار التداول المحترف", page_icon="📈", layout="wide")
 
 st.markdown("""
@@ -87,7 +87,6 @@ for ticker in saudi_leaders:
     stock_dfs[ticker] = df
     last = df.iloc[-1]
     
-    # تصنيف الأسهم الذهبية بناءً على القرب من مناطق صانع السوق
     is_golden = "سهم ذهبي مستعد 🌟" if last['Close'] <= (last['Current_Demand'] * 1.03) and last['RSI'] < 65 else "انتظار صامت ⏸️"
     
     market_data_list.append({
@@ -99,11 +98,10 @@ for ticker in saudi_leaders:
         "منطقة التصريف": round(last['Current_Supply'], 2)
     })
 
-# 🎛️ 4. توزيع الواجهة الرسومية إلى ثلاثة أقسام احترافية (صورة مستوحاة من طلبك)
-col_list, col_chart, col_calc = st.columns([1, 2, 1])
-
+# 🎛️ 4. توزيع الواجهة الرسومية إلى ثلاثة أقسام احترافية
 if market_data_list:
     df_market = pd.DataFrame(market_data_list)
+    col_list, col_chart, col_calc = st.columns([1, 2, 1])
     
     # 📌 القسم الأيمن: قائمة الرصد والرادارات
     with col_list:
@@ -113,11 +111,10 @@ if market_data_list:
         
     # 📌 القسم الأوسط: الرسم البياني التفاعلي الاحترافي بالشموع اليابانية ومستويات الأهداف
     with col_chart:
-        st.subheader(f"📈 الرسم البياني التفاعلي المتقدم: {selected_ticker}.SR")
+        st.subheader(f"📈 الرسم البياني المتقدم: {selected_ticker}.SR")
         df_selected = stock_dfs[selected_ticker]
         last_row = df_selected.iloc[-1]
         
-        # حساب الأهداف الجزئية المتقدمة لعرضها فوراً على الرسم البياني
         sl_val = last_row['Current_Demand'] * 0.99
         t_s, cap, tp1, s1, tp2, s2, tp3, s3 = calculate_advanced_targets(last_row['Close'], sl_val, last_row['Current_Supply'])
         
@@ -127,7 +124,6 @@ if market_data_list:
             low=df_selected['Low'], close=df_selected['Close'], name="حركة الشموع"
         ))
         
-        # رسم خطوط المستويات الذكية والأهداف الجزئية المتقدمة على الشارت
         if t_s > 0:
             fig.add_hline(y=last_row['Close'], line_dash="dash", line_color="#00FF00", annotation_text="سعر الدخول الحالي")
             fig.add_hline(y=sl_val, line_dash="solid", line_color="#FF0000", annotation_text="وقف الخسارة الصارم")
@@ -149,8 +145,8 @@ if market_data_list:
         if t_s > 0:
             st.markdown(f"""
             ### 🔢 خطة إدارة المحفظة المخصصة بالريال:
-            * **إجمالي عدد الأسهم المستهدفة:** `{total_shares}` سهم
-            * **السيولة المطلوبة من محفظتك:** `{allocated_capital:.2f}` ريال
+            * **إجمالي عدد الأسهم المستهدفة:** `{t_s}` سهم
+            * **السيولة المطلوبة من محفظتك:** `{cap:.2f}` ريال
             
             ### 🎯 توزيع الأهداف الجزئية الثلاثة المتقدمة (TP):
             * 🎯 **الهدف 1 (تأمين):** `{tp1:.2f}` ريال 👈 _بع `{s1}` سهم فوراً وانقل الوقف لدخولك!_
@@ -159,5 +155,5 @@ if market_data_list:
             """)
         else:
             st.info("💡 السهم مستقر حالياً وخارج مناطق الخطورة؛ انتظر تفعيل شروط الانفجار السيولي مع جرس التداول القادم.")
-            else:
+else:
     st.error("⚠️ تعذر الاتصال بالسيرفر السحابي البديل لجلب أسعار الإغلاق حالياً، يرجى إعادة تحديث الصفحة.")
