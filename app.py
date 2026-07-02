@@ -34,14 +34,26 @@ FUNDAMENTAL_FILTER = {
 def calculate_advanced_targets(entry_price, stop_loss, supply_target):
     risk_per_share = entry_price - stop_loss
     if risk_per_share <= 0: return 0, 0, 0, 0, 0, 0, 0, 0
+    
     total_shares = int((TOTAL_CAPITAL * RISK_PER_TRADE) / risk_per_share)
     allocated_capital = total_shares * entry_price
     if allocated_capital > (TOTAL_CAPITAL * 0.25):
-        total_shares = int((TOTAL_CAPITAL * 0.25) / entry_price)
+        max_allocation = TOTAL_CAPITAL * 0.25
+        total_shares = int(max_allocation / entry_price)
         allocated_capital = total_shares * entry_price
+        
     tp1 = entry_price + (risk_per_share * 1.2)
     tp2 = entry_price + (risk_per_share * 2.5)   
-    tp3 = supply_target                        
+    tp3 = entry_price + (risk_per_share * 4.0) 
+    
+    if tp3 <= tp2:
+        tp3 = tp2 + (risk_per_share * 1.5)
+        
+    shares_tp1 = int(total_shares * 0.50)
+    shares_tp2 = int(total_shares * 0.30)
+    shares_tp3 = total_shares - (shares_tp1 + shares_tp2)
+    return total_shares, allocated_capital, tp1, shares_tp1, tp2, shares_tp2, tp3, shares_tp3
+                      
     return total_shares, allocated_capital, tp1, int(total_shares*0.5), tp2, int(total_shares*0.3), tp3, total_shares - (int(total_shares*0.5) + int(total_shares*0.3))
 
 # 📊 2. قاعدة البيانات الحقيقية والنهائية لأسعار إغلاق اليوم الصحيحة بالهللة والريال
