@@ -50,29 +50,44 @@ def calculate_advanced_targets(entry_price, stop_loss):
 market_data_list = []
 stock_dfs = {}
 
-# قراءة الأسعار الفعلية لـ تيكرتشارت لضمان دقة بث سعر الراجحي بالهللة (65.95)
+# القاعدة المرجعية الفورية للأسهم القيادية
 real_market_prices = {
-    "1120": {"name": "الراجحي", "price": 65.95}, "1180": {"name": "الأهلي", "price": 38.20},
-    "1150": {"name": "الإنماء", "price": 31.40}, "1010": {"name": "الرياض", "price": 26.80},
-    "2222": {"name": "أرامكو", "price": 29.10}, "2010": {"name": "سابك", "price": 74.30},
-    "7010": {"name": "اس تي سي", "price": 43.56}, "4013": {"name": "سلوشنز", "price": 285.00}
+    "1120": {"name": "الراجحي", "price": 65.95}, 
+    "1180": {"name": "الأهلي", "price": 38.90},
+    "1150": {"name": "الإنماء", "price": 24.20}, 
+    "1010": {"name": "الرياض", "price": 20.34},
+    "2222": {"name": "أرامكو", "price": 26.16}, 
+    "2010": {"name": "سابك", "price": 51.60},
+    "7010": {"name": "اس تي سي", "price": 43.56}, 
+    "4013": {"name": "سلوشنز", "price": 285.00}
 }
 
-# قراءة الملف الحقيقي المرفوع إذا كان متاحاً مع تفعيل نسخة التدفق المانعة للقفل
+# 🔄 الفحص الديناميكي لملف تيكرتشارت لانتشال الأسعار سواء كانت الأعمدة عربية أو إنجليزية
 filename = "tickerchart_live.csv"
 if os.path.exists(filename):
     try:
-        # قراءة سريعة مع فك ارتباط الذاكرة الفوري لمنع تعليق وإغلاق إكسل وتيكرتشارت
         with open(filename, 'r', encoding='windows-1256', errors='ignore') as f:
             df_live = pd.read_csv(f, sep=';', on_bad_lines='skip')
         df_live.columns = df_live.columns.str.strip()
         
-        for index, row in df_live.iterrows():
-            try:
-                sym = str(row.get('Symbol', row.get('رمز', ''))).strip()
-                if sym in real_market_prices:
-                    real_market_prices[sym]["price"] = round(float(row.get('Last', row.get('آخر', real_market_prices[sym]["price"]))), 2)
-            except Exception: pass
+        # كسر عناد اللغات وفك تشفير الأعمدة تلقائياً
+        col_map = {}
+        for col in df_live.columns:
+            if 'رمز' in str(col) or 'Symbol' in str(col) or 'الرمز' in str(col): col_map['Symbol'] = col
+            if 'آخر' in str(col) or 'Last' in str(col) or 'السعر' in str(col) or 'إغلاق' in str(col): col_map['Last'] = col
+        
+        sym_col = col_map.get('Symbol')
+        last_col = col_map.get('Last')
+        
+        if sym_col and last_col:
+            for index, row in df_live.iterrows():
+                try:
+                    raw_sym = str(row[sym_col]).strip()
+                    # استخراج أرقام كود السهم فقط لتفادي التداخل النصي
+                    ticker_clean = "".join(re.findall(r'\d+', raw_sym))
+                    if ticker_clean in real_market_prices:
+                        real_market_prices[ticker_clean]["price"] = round(float(row[last_col]), 2)
+                except Exception: pass
     except Exception: pass
 
 # تحديد الفاصل الزمني النشط وعزل المستودعات بشكل كلي لتفادي تشوه الشارتات
@@ -85,7 +100,6 @@ for ticker, info in real_market_prices.items():
     np.random.seed(int(ticker) + len(st.session_state.current_tf))
     now = datetime.now(timezone(timedelta(hours=3)))
     
-    # محرك عزل الفواصل الزمنية والشموع التاريخية لمنع التشويه الهندسي
     tf_counts = {"دقيقة": 60, "5 دقائق": 40, "15 دقيقة": 30, "يوم": 45, "يومين": 30, "أسبوع": 40, "أسبوعين": 25, "شهر": 35}
     num_candles = tf_counts.get(st.session_state.current_tf, 30)
     
@@ -95,7 +109,7 @@ for ticker, info in real_market_prices.items():
     timestamps = [now - (current_delta * (num_candles - i)) for i in range(num_candles)]
     
     # صياغة وتوليد الشموع النظيفة والمقربة بدقة لخانة عشرية واحدة أو اثنتين فقط لتفادي عيب الصندوق العائم
-    closes = [round(c_close * (1 + np.sin(i/12)*0.015 + np.random.normal(0, 0.001)), 2) for i in range(num_candles)]
+    closes = [round(c_close * (1 + np.sin(i/12)*0.012 + np.random.normal(0, 0.001)), 2) for i in range(num_candles)]
     closes[-1] = c_close
     opens = [closes[max(0, i-1)] if i > 0 else c_close for i in range(num_candles)]
     highs = [round(max(opens[i], closes[i]) * (1 + abs(np.random.normal(0, 0.002))), 2) for i in range(num_candles)]
@@ -124,13 +138,12 @@ if market_data_list:
         st.subheader("🎯 رادار مسح ومطابقة الأسعار الحية")
         ticker_options = [f"{row['رمز السهم']} - {row['اسم الشركة']}" for _, row in df_market.iterrows()]
         selected_option = st.selectbox("اختر الشركة لتحديث كامل الشاشات والفواصل بالفور:", ticker_options)
-        selected_ticker = selected_option.split(" - ")[0]
+        selected_ticker = selected_option.split(" - ")
         st.dataframe(df_market, use_container_width=True, hide_index=True)
         
     with col_chart:
         st.subheader(f"📈 شاشات الفواصل الرسومية العالمية: {selected_option}.SR")
         
-        # أزرار اختيار الفواصل الزمنية المتقدمة والمصححة من التشويه
         st.write("⏱️ التنقل الفوري بين الفواصل الزمنية (Timeframe):")
         tf_cols = st.columns(8)
         timeframes = ["دقيقة", "5 دقائق", "15 دقيقة", "يوم", "يومين", "أسبوع", "أسبوعين", "شهر"]
@@ -145,7 +158,6 @@ if market_data_list:
         df_selected = stock_dfs[selected_ticker]
         last_row = df_selected.iloc[-1]
         
-        # ربط واحتساب الأهداف الديناميكية المرنة المطابقة لآخر نبضة سعرية للشمعة الفعليه
         sl_val = round(last_row['Low'] * 0.99, 2)
         t_s, capital, tp1, s1, tp2, s2, tp3, s3 = calculate_advanced_targets(last_row['Close'], sl_val)
         
